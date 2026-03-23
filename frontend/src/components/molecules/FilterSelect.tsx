@@ -1,0 +1,156 @@
+import { useMemo, useState } from "react";
+
+export type FilterValue = string | number | null | undefined;
+
+interface FilterSelectProps {
+  label: string;
+  value: FilterValue;
+  options?: string[];
+  onChange: (v: FilterValue) => void;
+  variant?: "dark" | "light";
+}
+
+export function FilterSelect({ label, value, options, onChange, variant = "light" }: FilterSelectProps) {
+  const [query, setQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+
+  const filteredOptions = useMemo(() => {
+    const base = options ?? [];
+    if (!query) return base;
+    const q = query.toLowerCase();
+    return base.filter((opt) => opt.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const displayValue = isSearching ? query : (value !== undefined ? String(value) : "");
+
+  const styles = variant === "dark"
+    ? {
+        inputBg: "#0f172a",
+        inputBorder: "#1e293b",
+        inputColor: "#e2e8f0",
+        dropdownBg: "#0f172a",
+        dropdownBorder: "#1e293b",
+        hoverBg: "#1e293b",
+        selectedBg: "#1f2a44",
+        borderColor: "#1e293b",
+        focusRing: "0 0 0 2px rgba(59, 130, 246, 0.35)",
+        labelColor: "#94a3b8"
+      }
+    : {
+        inputBg: "#f8fafc",
+        inputBorder: "#e2e8f0",
+        inputColor: "#334155",
+        dropdownBg: "#ffffff",
+        dropdownBorder: "#e2e8f0",
+        hoverBg: "#f1f5f9",
+        selectedBg: "#e0edff",
+        borderColor: "#e2e8f0",
+        focusRing: "0 0 0 2px rgba(59, 130, 246, 0.25)",
+        labelColor: "#64748b"
+      };
+
+  return (
+    <div style={{ marginBottom: 12, position: "relative" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: styles.labelColor, marginBottom: 6 }}>
+        {label}
+      </div>
+      <input
+        type="text"
+        value={displayValue}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIsSearching(true);
+        }}
+        onFocus={() => {
+          setIsFocused(true);
+          setShowDropdown(true);
+          // Don't set query to current value - this would filter out other options
+          // User can still type to search if needed
+          setQuery("");
+          setIsSearching(false);
+        }}
+        onBlur={() => {
+          setIsFocused(false);
+          setTimeout(() => {
+            setShowDropdown(false);
+            setIsSearching(false);
+            setQuery("");
+          }, 200);
+        }}
+        placeholder="검색 또는 선택"
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: `1px solid ${isFocused ? "#3b82f6" : styles.inputBorder}`,
+          background: styles.inputBg,
+          color: styles.inputColor,
+          outline: "none",
+          boxShadow: isFocused ? styles.focusRing : "none",
+          transition: "border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease"
+        }}
+      />
+      {showDropdown && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            marginTop: 6,
+            maxHeight: 200,
+            overflowY: "auto",
+            background: styles.dropdownBg,
+            border: `1px solid ${styles.dropdownBorder}`,
+            borderRadius: 10,
+            zIndex: 10,
+            boxShadow: "0 10px 24px rgba(15, 23, 42, 0.12)"
+          }}
+        >
+          <div
+            onClick={() => {
+              onChange(undefined);
+              setQuery("");
+              setIsSearching(false);
+              setShowDropdown(false);
+            }}
+            style={{
+              padding: "10px 12px",
+              cursor: "pointer",
+              borderBottom: `1px solid ${styles.borderColor}`,
+              fontWeight: 600,
+              color: styles.inputColor
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = styles.hoverBg)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = styles.dropdownBg)}
+          >
+            전체
+          </div>
+          {filteredOptions.map((opt) => (
+            <div
+              key={opt}
+              onClick={() => {
+                onChange(opt);
+                setQuery("");
+                setIsSearching(false);
+                setShowDropdown(false);
+              }}
+              style={{
+                padding: "10px 12px",
+                cursor: "pointer",
+                background: value === opt ? styles.selectedBg : styles.dropdownBg,
+                color: styles.inputColor
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = value === opt ? styles.selectedBg : styles.hoverBg)}
+              onMouseLeave={(e) => (e.currentTarget.style.background = value === opt ? styles.selectedBg : styles.dropdownBg)}
+            >
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

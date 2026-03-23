@@ -1,0 +1,158 @@
+import React from "react";
+
+import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
+import { DonutChart } from "@/components/charts/DonutChart";
+import { cardStyle, titleStyle } from "@/utils/dashboardStyles";
+import { numberFormat } from "@/utils/snapshotTransformers";
+import { ResponsiveContainer, Treemap } from "recharts";
+
+interface GroupValue {
+  name: string;
+  value: number;
+}
+
+interface TreemapItem {
+  name: string;
+  size: number;
+  fill: string;
+}
+
+interface TreemapContentProps {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  name?: string;
+  index?: number;
+  fill?: string;
+  payload?: { fill?: string };
+  onSelectFormType?: (name: string) => void;
+  themeBlue?: string;
+}
+
+function TreemapContent({
+  x = 0,
+  y = 0,
+  width = 0,
+  height = 0,
+  name = "",
+  index = 0,
+  fill,
+  payload,
+  onSelectFormType,
+  themeBlue
+}: TreemapContentProps) {
+  if (width < 30 || height < 20) return null;
+  const palette = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"];
+  const resolvedFill = fill ?? payload?.fill ?? palette[index % palette.length] ?? themeBlue ?? "#3b82f6";
+  const label = name.length > 10 ? `${name.slice(0, 10)}...` : name;
+  return (
+    <g style={{ cursor: "pointer" }} onClick={() => onSelectFormType?.(name)}>
+      <rect x={x} y={y} width={width} height={height} fill={resolvedFill} stroke="#ffffff" strokeWidth={2} rx={4} />
+      <text
+        x={x + width / 2}
+        y={y + height / 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={10}
+        fill="#ffffff"
+        fontWeight={600}
+        style={{ pointerEvents: "none" }}
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
+export function FormulationTab({
+  formulationBySales,
+  foodTypeBySales,
+  functionCategoryBySales,
+  totalSales,
+  treemapData,
+  onSelectFormType,
+  onSelectFoodType,
+  onSelectFunctionCategory,
+  theme
+}: {
+  formulationBySales: GroupValue[];
+  foodTypeBySales: GroupValue[];
+  functionCategoryBySales: GroupValue[];
+  totalSales: number;
+  treemapData: TreemapItem[];
+  onSelectFormType: (name: string) => void;
+  onSelectFoodType: (name: string) => void;
+  onSelectFunctionCategory: (name: string) => void;
+  theme: { blue: string };
+}) {
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "2fr 1fr" }}>
+        <HorizontalBarChart
+          title="제형별 매출 (상위 10)"
+          data={formulationBySales.slice(0, 10)}
+          color={theme.blue}
+          leftMargin={160}
+        />
+        <div style={{ ...cardStyle, padding: 12 }}>
+          <h3 style={titleStyle}>제형 Treemap</h3>
+          <div style={{ width: "100%", height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <Treemap
+                data={treemapData}
+                dataKey="size"
+                stroke="#ffffff"
+                content={<TreemapContent onSelectFormType={onSelectFormType} themeBlue={theme.blue} />}
+              />
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <DonutChart
+          title="상품타입별 매출 비중"
+          data={foodTypeBySales.slice(0, 8)}
+          maxSlices={8}
+          showPercentText
+          height={260}
+          onSelect={onSelectFoodType}
+        />
+        <DonutChart
+          title="기능카테고리별 매출 비중"
+          data={functionCategoryBySales.slice(0, 8)}
+          maxSlices={8}
+          showPercentText
+          height={260}
+          onSelect={onSelectFunctionCategory}
+        />
+        <div style={{ ...cardStyle, padding: 16 }}>
+          <h3 style={titleStyle}>제형별 매출 상위 리스트</h3>
+          <div style={{ overflowX: "auto", maxHeight: 260, overflowY: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: 600, color: "#0f172a" }}>제형</th>
+                  <th style={{ padding: "8px", textAlign: "right", fontWeight: 600, color: "#0f172a" }}>매출(억)</th>
+                  <th style={{ padding: "8px", textAlign: "right", fontWeight: 600, color: "#0f172a" }}>비중</th>
+                </tr>
+              </thead>
+              <tbody>
+                {formulationBySales.slice(0, 12).map((row) => {
+                  const share = totalSales > 0 ? (row.value / totalSales) * 100 : 0;
+                  return (
+                    <tr key={row.name} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "8px", color: "#0f172a", fontWeight: 500 }}>{row.name}</td>
+                      <td style={{ padding: "8px", textAlign: "right", color: "#0f172a" }}>{numberFormat(Math.round(row.value / 100_000_000))}</td>
+                      <td style={{ padding: "8px", textAlign: "right", color: "#64748b" }}>{share.toFixed(1)}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

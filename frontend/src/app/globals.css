@@ -1,0 +1,63 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+
+:root {
+  color-scheme: light;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  --page-bg: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
+  --page-bg-solid: #f8fafc;
+  --page-text: #0f172a;
+  --chart-card-bg: #ffffff;
+  --chart-card-border: #e2e8f0;
+  --chart-title: #334155;
+  --chart-subtitle: #94a3b8;
+  --chart-meta-bg: #f1f5f9;
+  --chart-meta-text: #64748b;
+  --chart-icon-bg: #e0edff;
+  --chart-grid: #f1f5f9;
+  --chart-axis: #64748b;
+  --chart-label: #64748b;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-text: #0f172a;
+  --chart-cursor: #f8fafc;
+  --chart-soft-bg: #f8fafc;
+  --chart-soft-border: #e2e8f0;
+  --table-bg: #ffffff;
+  --table-border: #e2e8f0;
+  --table-head-bg: #f8fafc;
+  --table-head-text: #64748b;
+  --table-text: #334155;
+  --table-subtext: #64748b;
+  --table-hover: #eff6ff;
+  --table-meta-bg: #f1f5f9;
+  --table-meta-text: #64748b;
+}
+
+body {
+  margin: 0;
+  background: var(--page-bg-solid);
+  color: var(--page-text);
+}
+
+body.chart-theme-dark {
+  --page-bg: #0b1220;
+  --page-bg-solid: #0b1220;
+  --page-text: #e2e8f0;
+  --table-bg: #0f172a;
+  --table-border: #1e293b;
+  --table-head-bg: #111a2e;
+  --table-head-text: #94a3b8;
+  --table-text: #e2e8f0;
+  --table-subtext: #94a3b8;
+  --table-hover: #17233b;
+  --table-meta-bg: #111a2e;
+  --table-meta-text: #cbd5f5;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+}
