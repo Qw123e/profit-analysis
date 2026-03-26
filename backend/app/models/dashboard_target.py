@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, CheckConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -15,6 +15,7 @@ class DashboardTarget(Base):
     __table_args__ = (
         UniqueConstraint("dashboard_key", "company_code", "year", "month", name="uq_dashboard_targets_key_year_month_company"),
         CheckConstraint("month >= 1 AND month <= 12", name="ck_dashboard_targets_month_range"),
+        Index("ix_dashboard_targets_composite", "dashboard_key", "company_code", "year"),
         {"schema": settings.bi_schema},
     )
 

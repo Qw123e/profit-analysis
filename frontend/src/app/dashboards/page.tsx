@@ -8,10 +8,21 @@ import useSWR, { useSWRConfig } from "swr";
 import { authService } from "@/services/authService";
 import { bootstrapService } from "@/services/bootstrapService";
 import { dashboardService } from "@/services/dashboardService";
+import dynamic from "next/dynamic";
 import { DashboardCard } from "@/components/molecules/DashboardCard";
-import { DashboardCreateModal } from "@/components/molecules/DashboardCreateModal";
-import { DashboardEditModal } from "@/components/molecules/DashboardEditModal";
-import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
+
+const DashboardCreateModal = dynamic(
+  () => import("@/components/molecules/DashboardCreateModal").then((mod) => mod.DashboardCreateModal),
+  { ssr: false }
+);
+const DashboardEditModal = dynamic(
+  () => import("@/components/molecules/DashboardEditModal").then((mod) => mod.DashboardEditModal),
+  { ssr: false }
+);
+const ConfirmDialog = dynamic(
+  () => import("@/components/molecules/ConfirmDialog").then((mod) => mod.ConfirmDialog),
+  { ssr: false }
+);
 import { ToastContainer } from "@/components/molecules/Toast";
 import { useToast } from "@/hooks/useToast";
 import { LOGIN_ROUTE } from "@/utils/routes";
