@@ -5,7 +5,7 @@ build:
     pre-build:
       - yum install -y postgresql-devel
     build:
-      - pip install -r requirements.txt
+      - python -m pip install -r requirements.txt
 run:
   command: sh entrypoint.sh
   network:
