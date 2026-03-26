@@ -37,5 +37,7 @@ class Settings(BaseSettings):
 
     gcc_snapshot_row_limit: int | None = 100000000  # No practical limit
 
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080,http://127.0.0.1:8080"
+
 
 settings = Settings()
