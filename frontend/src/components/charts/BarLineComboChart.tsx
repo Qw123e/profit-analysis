@@ -232,7 +232,7 @@ export function BarLineComboChart({
               <Scatter
                 yAxisId="right"
                 dataKey="prevYearScatterValuePositive"
-                name={`${prevYear}년 ${prevYearScatterSeries.name} (양수)`}
+                name={`${prevYear}년 ${prevYearScatterSeries.name} (흑자)`}
                 fill="#86efac"
                 fillOpacity={0.6}
                 shape={(props: any) => {
@@ -249,7 +249,7 @@ export function BarLineComboChart({
               <Scatter
                 yAxisId="right"
                 dataKey="prevYearScatterValueNegative"
-                name={`${prevYear}년 ${prevYearScatterSeries.name} (음수)`}
+                name={`${prevYear}년 ${prevYearScatterSeries.name} (적자)`}
                 fill="#fca5a5"
                 fillOpacity={0.6}
                 shape={(props: any) => {
@@ -266,7 +266,7 @@ export function BarLineComboChart({
               <Scatter
                 yAxisId="right"
                 dataKey="scatterValuePositive"
-                name={`${currentYear ? currentYear + '년 ' : ''}${scatterSeries.name} (양수)`}
+                name={`${currentYear ? currentYear + '년 ' : ''}${scatterSeries.name} (흑자)`}
                 fill="#10b981"
                 shape={(props: any) => {
                   const { cx, cy, fill, payload } = props;
@@ -282,7 +282,7 @@ export function BarLineComboChart({
               <Scatter
                 yAxisId="right"
                 dataKey="scatterValueNegative"
-                name={`${currentYear ? currentYear + '년 ' : ''}${scatterSeries.name} (음수)`}
+                name={`${currentYear ? currentYear + '년 ' : ''}${scatterSeries.name} (적자)`}
                 fill="#ef4444"
                 shape={(props: any) => {
                   const { cx, cy, fill, payload } = props;
