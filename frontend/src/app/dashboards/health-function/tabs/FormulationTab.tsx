@@ -609,13 +609,25 @@ export function FormulationTab({
           </div>
 
           {/* World Map */}
-          <div style={{ flex: 0.7, minWidth: 0, minHeight: 0 }}>
+          <div style={{ flex: 0.7, minWidth: 0, minHeight: 0, position: "relative" }}>
             <WorldSalesMap
               data={(countryBySales || []).map((item) => ({ name: item.name, value: item.value }))}
               title="국가별 매출 분포"
               onCountryClick={onCountrySelect}
               onExpand={onCountryExpand}
             />
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              backgroundColor: "rgba(30, 30, 30, 0.85)",
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10,
+            }}>
+              <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 500 }}>비공개 영역</span>
+            </div>
           </div>
         </div>
       </div>
