@@ -168,7 +168,7 @@ async def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+    engine = create_async_engine(settings.effective_database_url, pool_pre_ping=True)
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
     async with session_maker() as session:

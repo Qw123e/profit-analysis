@@ -1,6 +1,21 @@
 #!/usr/bin/env sh
 set -eu
 
+# Secrets Manager 개별 필드에서 DATABASE_URL 자동 조합
+if [ -z "${DATABASE_URL:-}" ] && [ -n "${DB_HOST:-}" ]; then
+  export DATABASE_URL=$(python -c "
+from urllib.parse import quote_plus
+import os
+user = os.environ['DB_USERNAME']
+pwd = quote_plus(os.environ['DB_PASSWORD'])
+host = os.environ['DB_HOST']
+port = os.environ.get('DB_PORT', '5432')
+name = os.environ.get('DB_NAME', 'postgres')
+print(f'postgresql+asyncpg://{user}:{pwd}@{host}:{port}/{name}')
+")
+  echo "[backend] DATABASE_URL constructed from individual fields"
+fi
+
 echo "[backend] running migrations"
 alembic upgrade head
 

@@ -13,3 +13,14 @@ run:
   env:
     - name: PYTHONPATH
       value: "."
+  secrets:
+    - name: DB_USERNAME
+      value-from: "arn:aws:secretsmanager:ap-northeast-1:559784498787:secret:app_COS_summit_prd-1eqRRx:username::"
+    - name: DB_PASSWORD
+      value-from: "arn:aws:secretsmanager:ap-northeast-1:559784498787:secret:app_COS_summit_prd-1eqRRx:password::"
+    - name: DB_HOST
+      value-from: "arn:aws:secretsmanager:ap-northeast-1:559784498787:secret:app_COS_summit_prd-1eqRRx:host::"
+    - name: DB_PORT
+      value-from: "arn:aws:secretsmanager:ap-northeast-1:559784498787:secret:app_COS_summit_prd-1eqRRx:port::"
+    - name: DB_NAME
+      value-from: "arn:aws:secretsmanager:ap-northeast-1:559784498787:secret:app_COS_summit_prd-1eqRRx:dbname::"

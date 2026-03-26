@@ -1,3 +1,5 @@
+from urllib.parse import quote_plus
+
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -8,7 +10,23 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     env: str = "local"
-    database_url: str
+    database_url: str = ""
+
+    # Secrets Manager 개별 필드 지원 (DATABASE_URL이 없을 때 자동 조합)
+    db_host: str = ""
+    db_port: str = "5432"
+    db_username: str = ""
+    db_password: str = ""
+    db_name: str = "postgres"
+
+    @property
+    def effective_database_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        if self.db_host and self.db_username:
+            encoded_password = quote_plus(self.db_password)
+            return f"postgresql+asyncpg://{self.db_username}:{encoded_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+        raise ValueError("DATABASE_URL 또는 DB_HOST/DB_USERNAME을 설정해주세요")
 
     aws_region: str = "ap-northeast-2"
     athena_workgroup: str = "primary"
