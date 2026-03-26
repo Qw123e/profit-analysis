@@ -17,10 +17,10 @@ print(f'postgresql+asyncpg://{user}:{pwd}@{host}:{port}/{name}')
 fi
 
 echo "[backend] running migrations"
-python3 -m alembic upgrade head
+alembic upgrade head
 
 echo "[backend] syncing dashboards and snapshots from filesystem"
 python3 scripts/sync_dashboards_and_snapshots.py || echo "[backend] sync skipped (no local data)"
 
 echo "[backend] starting api server"
-exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000

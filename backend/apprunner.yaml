@@ -5,14 +5,16 @@ build:
     pre-build:
       - yum install -y postgresql-devel
     build:
-      - python3 -m pip install -r requirements.txt
+      - python3 -m pip install -r requirements.txt --target /app/backend/deps
 run:
   command: sh entrypoint.sh
   network:
     port: 8000
   env:
     - name: PYTHONPATH
-      value: "."
+      value: "/app/backend:/app/backend/deps"
+    - name: PATH
+      value: "/app/backend/deps/bin:/usr/local/bin:/usr/bin:/bin"
   secrets:
     - name: DB_USERNAME
       value-from: "arn:aws:secretsmanager:ap-northeast-1:559784498787:secret:app_COS_summit_prd-1eqRRx:username::"
