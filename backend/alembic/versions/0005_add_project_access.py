@@ -13,7 +13,8 @@ down_revision = "0004_add_dashboard_access"
 branch_labels = None
 depends_on = None
 
-SCHEMA = "bi"
+import os
+SCHEMA = os.environ.get("BI_SCHEMA", "bi")
 
 
 def upgrade() -> None:
