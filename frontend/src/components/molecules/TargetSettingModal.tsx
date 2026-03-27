@@ -163,40 +163,30 @@ export function TargetSettingModal({
       setRows((prev) =>
         prev.map((r) => (r.month === month ? { ...r, [field]: value } : r))
       );
-      setDraftTargets((prev) => {
-        const companyKey = selectedCompany ?? "ALL";
-        const filtered = prev.filter(
-          (t) =>
-            !(
-              t.year === selectedYear &&
-              t.month === month &&
-              (t.company_code ?? "ALL") === companyKey
-            )
-        );
-        const currentRow = rows.find((r) => r.month === month);
-        const sales =
-          field === "salesTarget"
-            ? parseFloat(value) || 0
-            : parseFloat(currentRow?.salesTarget || "0") || 0;
-        const op =
-          field === "opTarget"
-            ? parseFloat(value) || 0
-            : parseFloat(currentRow?.opTarget || "0") || 0;
-        if (sales === 0 && op === 0) return filtered;
-        return [
-          ...filtered,
-          {
-            year: selectedYear,
-            month,
-            sales_target: sales,
-            op_target: op,
-            company_code: companyKey,
-          },
-        ];
-      });
     },
-    [selectedYear, rows, selectedCompany]
+    []
   );
+
+  const buildDraftFromRows = useCallback(() => {
+    const companyKey = selectedCompany ?? "ALL";
+    const updatedTargets = draftTargets.filter(
+      (t) => !(t.year === selectedYear && (t.company_code ?? "ALL") === companyKey)
+    );
+    for (const row of rows) {
+      const sales = parseFloat(row.salesTarget || "0") || 0;
+      const op = parseFloat(row.opTarget || "0") || 0;
+      if (sales !== 0 || op !== 0) {
+        updatedTargets.push({
+          year: selectedYear,
+          month: row.month,
+          sales_target: sales,
+          op_target: op,
+          company_code: companyKey,
+        });
+      }
+    }
+    return updatedTargets;
+  }, [selectedYear, rows, selectedCompany, draftTargets]);
 
   const calcOPM = (sales: string, op: string): string => {
     const s = parseFloat(sales);
@@ -206,8 +196,9 @@ export function TargetSettingModal({
   };
 
   const handleSave = async () => {
+    const latestDraft = buildDraftFromRows();
     const companyKey = selectedCompany ?? "ALL";
-    const cleanTargets = draftTargets
+    const cleanTargets = latestDraft
       .map((t) => ({ ...t, company_code: t.company_code ?? companyKey }))
       .filter((t) => t.sales_target !== 0 || t.op_target !== 0);
     await onSaveTargets(cleanTargets);
