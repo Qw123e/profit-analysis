@@ -16,7 +16,7 @@ run:
     - name: PATH
       value: "/app/backend/deps/bin:/usr/local/bin:/usr/bin:/bin"
     - name: BI_SCHEMA
-      value: "public"
+      value: "app_cos_summit_prd"
     - name: DISABLE_AUTH
       value: "true"
     - name: ATHENA_MOCK_MODE
