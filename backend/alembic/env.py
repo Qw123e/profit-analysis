@@ -59,61 +59,8 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        # Create bi schema if it doesn't exist (skip if no permission)
-        try:
-            connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {settings.bi_schema}"))
-            connection.commit()
-        except Exception as e:
-            print(f"[alembic] Schema creation skipped (using public): {e}")
-            connection.rollback()
-
-        # Fallback: use public schema if bi schema doesn't exist
-        try:
-            result = connection.execute(
-                text("SELECT schema_name FROM information_schema.schemata WHERE schema_name = :s"),
-                {"s": settings.bi_schema},
-            )
-            if not result.fetchone():
-                print(f"[alembic] Schema '{settings.bi_schema}' not available, falling back to 'public'")
-                settings.__dict__["bi_schema"] = "public"
-        except Exception:
-            pass
-
-        # Ensure alembic_version can store long revision ids
-        schema = settings.bi_schema
-        try:
-            connection.execute(
-                text(
-                    f"""
-                    DO $$
-                    BEGIN
-                      IF NOT EXISTS (
-                        SELECT 1
-                        FROM information_schema.tables
-                        WHERE table_schema = '{schema}'
-                          AND table_name = 'alembic_version'
-                      ) THEN
-                        EXECUTE 'CREATE TABLE {schema}.alembic_version (version_num VARCHAR(64) PRIMARY KEY)';
-                      ELSE
-                        IF EXISTS (
-                          SELECT 1
-                          FROM information_schema.columns
-                          WHERE table_schema = '{schema}'
-                            AND table_name = 'alembic_version'
-                            AND column_name = 'version_num'
-                            AND (character_maximum_length IS NULL OR character_maximum_length < 64)
-                        ) THEN
-                          EXECUTE 'ALTER TABLE {schema}.alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)';
-                        END IF;
-                      END IF;
-                    END $$;
-                    """
-                )
-            )
-            connection.commit()
-        except Exception as e:
-            print(f"[alembic] alembic_version setup skipped: {e}")
-            connection.rollback()
+        # Schema is managed by DBA (I&S team) - no CREATE SCHEMA needed
+        print(f"[alembic] Using schema: {settings.bi_schema}")
 
         context.configure(
             connection=connection,

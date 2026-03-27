@@ -18,10 +18,6 @@ SCHEMA = os.environ.get("BI_SCHEMA", "bi")
 
 
 def upgrade() -> None:
-    try:
-        op.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
-    except Exception:
-        pass  # Schema already exists or no permission (managed by DBA)
     op.create_table(
         "dashboards",
         sa.Column("id", sa.Integer(), primary_key=True),
