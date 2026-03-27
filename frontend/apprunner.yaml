@@ -4,7 +4,7 @@ build:
   commands:
     build:
       - npm install
-      - NEXT_PUBLIC_API_URL=https://cos-summit-api.cosmaxhub.com/api NODE_OPTIONS="--max-old-space-size=768" npm run build
+      - NEXT_PUBLIC_API_URL=https://cos-summit-back.cosmaxhub.com/api NODE_OPTIONS="--max-old-space-size=768" npm run build
 run:
   command: npm start
   network:

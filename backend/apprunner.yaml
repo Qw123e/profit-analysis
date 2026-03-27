@@ -23,6 +23,8 @@ run:
       value: "true"
     - name: SNAPSHOT_LOCAL_DIR
       value: "/tmp/snapshots"
+    - name: CORS_ORIGINS
+      value: "https://cos-summit.cosmaxhub.com,http://localhost:3000,http://localhost:8080"
   secrets:
     - name: DB_USERNAME
       value-from: "arn:aws:secretsmanager:ap-northeast-1:559784498787:secret:app_COS_summit_prd-1eqRRx:username::"
