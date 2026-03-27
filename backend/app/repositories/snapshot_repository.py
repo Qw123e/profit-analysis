@@ -53,7 +53,8 @@ class SnapshotRepository:
         dashboard_id: int,
         snapshot_date: date,
         feed_key: str,
-        s3_uri: str,
+        s3_uri: str | None = None,
+        data_json: str | None = None,
     ) -> None:
         # delete existing feed snapshot for that date/key
         existing = await self.db.execute(
@@ -71,6 +72,7 @@ class SnapshotRepository:
             snapshot_date=snapshot_date,
             feed_key=feed_key,
             s3_uri=s3_uri,
+            data_json=data_json,
         )
         self.db.add(item)
         await self.db.commit()

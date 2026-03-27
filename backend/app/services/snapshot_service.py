@@ -258,6 +258,20 @@ def _resolve_local_snapshot_path(uri: str) -> Path:
     raise SnapshotFetchError(f"Only local snapshot files are supported: {uri}")
 
 
+def _load_snapshot_data(item: Any, row_limit: int | None = None) -> dict[str, Any]:
+    """Load snapshot data: DB first, then file fallback."""
+    # 1) Try DB data_json column (persistent, no file dependency)
+    if item.data_json:
+        raw = json.loads(item.data_json)
+        return _apply_row_limit(raw, row_limit)
+
+    # 2) Fallback to file/S3 (for backward compatibility)
+    if item.s3_uri:
+        return _load_json_any(item.s3_uri, row_limit)
+
+    raise SnapshotFetchError(f"No data available for feed {item.feed_key}")
+
+
 class SnapshotService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -278,10 +292,8 @@ class SnapshotService:
             raise SnapshotNotFoundError("No snapshot items found for the given date")
 
         feeds: dict[str, SnapshotFeed] = {}
-        load_tasks = [asyncio.to_thread(_load_json_any, item.s3_uri, row_limit) for item in items]
-        results = await asyncio.gather(*load_tasks)
-        for item, raw in zip(items, results):
-            # Expecting {"columns": [...], "rows": [...]}
+        for item in items:
+            raw = _load_snapshot_data(item, row_limit)
             if not isinstance(raw, dict) or "columns" not in raw or "rows" not in raw:
                 raise SnapshotFetchError(f"Snapshot format invalid for feed {item.feed_key}")
             feeds[item.feed_key] = SnapshotFeed(columns=list(raw["columns"]), rows=list(raw["rows"]))
@@ -308,7 +320,7 @@ class SnapshotService:
         if item is None:
             raise SnapshotNotFoundError(f"Feed not found: {feed_key}")
 
-        raw = await asyncio.to_thread(_load_json_any, item.s3_uri, row_limit)
+        raw = _load_snapshot_data(item, row_limit)
         if not isinstance(raw, dict) or "columns" not in raw or "rows" not in raw:
             raise SnapshotFetchError(f"Snapshot format invalid for feed {feed_key}")
 
@@ -432,28 +444,23 @@ class SnapshotService:
         if validation["status"] == "warning":
             print(f"⚠️ Snapshot validation warnings: {', '.join(validation['warnings'])}")
 
-        # Save full data as JSON (primary format, no native binary dependency)
-        data_json_path = output_dir / f"{feed_key}.json"
-        _write_json(data_json_path, {"columns": list(df.columns), "rows": rows})
-        print(f"📦 Saved JSON: {data_json_path} (size: {data_json_path.stat().st_size / 1024 / 1024:.2f}MB)")
+        # Store data in DB (persistent across deployments)
+        data_payload = {"columns": list(df.columns), "rows": rows}
+        data_json_str = json.dumps(data_payload, ensure_ascii=False)
+        print(f"📦 Storing snapshot in DB ({len(data_json_str) / 1024 / 1024:.2f}MB)")
 
-        # Optionally save parquet (faster reads when pyarrow is available)
+        # Also save files locally (optional, for dev/download)
         try:
-            parquet_path = output_dir / f"{feed_key}.parquet"
-            for col in df.select_dtypes(include=['object']).columns:
-                df[col] = df[col].astype(str)
-                df[col] = df[col].str.replace(r'\.0$', '', regex=True)
-            df.to_parquet(parquet_path, engine="pyarrow", compression="snappy", index=False)
-            print(f"📦 Saved parquet: {parquet_path} (size: {parquet_path.stat().st_size / 1024 / 1024:.2f}MB)")
+            data_json_path = output_dir / f"{feed_key}.json"
+            _write_json(data_json_path, data_payload)
         except Exception as e:
-            print(f"⚠️ Parquet save skipped (pyarrow not available): {e}")
+            print(f"⚠️ Local file save skipped: {e}")
 
-        file_uri = f"file://{data_json_path}"
         await self.snapshot_repo.upsert_snapshot_item(
             dashboard_id=dashboard_id,
             snapshot_date=target_date,
             feed_key=feed_key,
-            s3_uri=file_uri,
+            data_json=data_json_str,
         )
         return target_date, feed
 
@@ -519,29 +526,23 @@ class SnapshotService:
         if validation["status"] == "warning":
             print(f"⚠️ Snapshot validation warnings: {', '.join(validation['warnings'])}")
 
-        # Save full data as JSON (primary format, no native binary dependency)
-        data_json_path = output_dir / f"{feed_key}.json"
-        _write_json(data_json_path, {"columns": list(df.columns), "rows": coerced_rows})
-        print(f"📦 Saved JSON: {data_json_path} (size: {data_json_path.stat().st_size / 1024 / 1024:.2f}MB)")
+        # Store data in DB (persistent across deployments)
+        data_payload = {"columns": list(df.columns), "rows": coerced_rows}
+        data_json_str = json.dumps(data_payload, ensure_ascii=False)
+        print(f"📦 Storing snapshot in DB ({len(data_json_str) / 1024 / 1024:.2f}MB)")
 
-        # Optionally save parquet (faster reads when pyarrow is available)
+        # Also save files locally (optional, for dev/download)
         try:
-            parquet_path = output_dir / f"{feed_key}.parquet"
-            for col in df.select_dtypes(include=['object']).columns:
-                df[col] = df[col].astype(str)
-                df[col] = df[col].str.replace(r'\.0$', '', regex=True)
-            df.to_parquet(parquet_path, engine="pyarrow", compression="snappy", index=False)
-            print(f"📦 Saved parquet: {parquet_path} (size: {parquet_path.stat().st_size / 1024 / 1024:.2f}MB)")
+            data_json_path = output_dir / f"{feed_key}.json"
+            _write_json(data_json_path, data_payload)
         except Exception as e:
-            print(f"⚠️ Parquet save skipped (pyarrow not available): {e}")
+            print(f"⚠️ Local file save skipped: {e}")
 
-        # Update database
-        file_uri = f"file://{data_json_path}"
         await self.snapshot_repo.upsert_snapshot_item(
             dashboard_id=dashboard_id,
             snapshot_date=target_date,
             feed_key=feed_key,
-            s3_uri=file_uri,
+            data_json=data_json_str,
         )
 
         return target_date, feed
