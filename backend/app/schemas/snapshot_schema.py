@@ -9,7 +9,7 @@ class SnapshotMappingItem(BaseModel):
     snapshot_date: date
     feed_key: str
     generated_at: datetime
-    s3_uri: str
+    s3_uri: str | None = None
 
 
 class SnapshotMappingResponse(BaseModel):

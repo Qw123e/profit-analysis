@@ -449,17 +449,28 @@ class SnapshotService:
         data_json_str = json.dumps(data_payload, ensure_ascii=False)
         print(f"📦 Storing snapshot in DB ({len(data_json_str) / 1024 / 1024:.2f}MB)")
 
-        # Also save files locally (optional, for dev/download)
+        # Also save local file + parquet (optional, for download/dev)
+        file_uri = None
         try:
             data_json_path = output_dir / f"{feed_key}.json"
             _write_json(data_json_path, data_payload)
+            file_uri = f"file://{data_json_path}"
         except Exception as e:
             print(f"⚠️ Local file save skipped: {e}")
+        try:
+            parquet_path = output_dir / f"{feed_key}.parquet"
+            for col in df.select_dtypes(include=['object']).columns:
+                df[col] = df[col].astype(str)
+                df[col] = df[col].str.replace(r'\.0$', '', regex=True)
+            df.to_parquet(parquet_path, engine="pyarrow", compression="snappy", index=False)
+        except Exception:
+            pass
 
         await self.snapshot_repo.upsert_snapshot_item(
             dashboard_id=dashboard_id,
             snapshot_date=target_date,
             feed_key=feed_key,
+            s3_uri=file_uri,
             data_json=data_json_str,
         )
         return target_date, feed
@@ -531,10 +542,12 @@ class SnapshotService:
         data_json_str = json.dumps(data_payload, ensure_ascii=False)
         print(f"📦 Storing snapshot in DB ({len(data_json_str) / 1024 / 1024:.2f}MB)")
 
-        # Also save files locally (optional, for dev/download)
+        # Also save local file (optional, for download/dev)
+        file_uri = None
         try:
             data_json_path = output_dir / f"{feed_key}.json"
             _write_json(data_json_path, data_payload)
+            file_uri = f"file://{data_json_path}"
         except Exception as e:
             print(f"⚠️ Local file save skipped: {e}")
 
@@ -542,6 +555,7 @@ class SnapshotService:
             dashboard_id=dashboard_id,
             snapshot_date=target_date,
             feed_key=feed_key,
+            s3_uri=file_uri,
             data_json=data_json_str,
         )
 
