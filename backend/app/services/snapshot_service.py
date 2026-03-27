@@ -72,48 +72,73 @@ def _apply_row_limit(raw: dict[str, Any], row_limit: int | None) -> dict[str, An
 def _load_json_uncached(uri: str, row_limit: int | None = None) -> dict[str, Any]:
     if uri.startswith("s3://"):
         return _apply_row_limit(_load_json_from_s3(uri), row_limit)
-    # allow local file for dev
-    # Try parquet first (much faster)
+
     parsed = urlparse(uri)
     path = parsed.path if parsed.scheme == "file" else uri
-    parquet_path = path.replace(".json", ".parquet")
 
+    # Derive both JSON and parquet paths
+    if path.endswith(".parquet"):
+        json_path = path.rsplit(".parquet", 1)[0] + ".json"
+        parquet_path = path
+    elif path.endswith(".json"):
+        json_path = path
+        parquet_path = path.rsplit(".json", 1)[0] + ".parquet"
+    else:
+        json_path = path + ".json"
+        parquet_path = path + ".parquet"
+
+    # 1) Try JSON first (no native binary dependency)
+    if os.path.exists(json_path):
+        json_uri = f"file://{json_path}" if parsed.scheme == "file" else json_path
+        return _apply_row_limit(_load_json_from_file(json_uri), row_limit)
+
+    # 2) Try parquet as fallback (requires pyarrow)
     if os.path.exists(parquet_path):
-        import time
-        start = time.time()
-        if row_limit and row_limit > 0:
-            import pyarrow as pa
-            import pyarrow.parquet as pq
+        try:
+            import time
+            start = time.time()
+            if row_limit and row_limit > 0:
+                import pyarrow as pa
+                import pyarrow.parquet as pq
 
-            parquet_file = pq.ParquetFile(parquet_path)
-            remaining = row_limit
-            tables = []
-            for idx in range(parquet_file.num_row_groups):
-                if remaining <= 0:
-                    break
-                table = parquet_file.read_row_group(idx)
-                if remaining < table.num_rows:
-                    table = table.slice(0, remaining)
-                tables.append(table)
-                remaining -= table.num_rows
-            if not tables:
-                table = parquet_file.read_row_group(0).slice(0, 0)
-            elif len(tables) == 1:
-                table = tables[0]
+                parquet_file = pq.ParquetFile(parquet_path)
+                remaining = row_limit
+                tables = []
+                for idx in range(parquet_file.num_row_groups):
+                    if remaining <= 0:
+                        break
+                    table = parquet_file.read_row_group(idx)
+                    if remaining < table.num_rows:
+                        table = table.slice(0, remaining)
+                    tables.append(table)
+                    remaining -= table.num_rows
+                if not tables:
+                    table = parquet_file.read_row_group(0).slice(0, 0)
+                elif len(tables) == 1:
+                    table = tables[0]
+                else:
+                    table = pa.concat_tables(tables)
+                df = table.to_pandas()
             else:
-                table = pa.concat_tables(tables)
-            df = table.to_pandas()
-        else:
-            df = pd.read_parquet(parquet_path, engine="pyarrow")
-        elapsed = time.time() - start
-        print(f"⚡ Loaded parquet in {elapsed:.3f}s: {parquet_path}")
-        rows = [[_coerce_json_value(v) for v in row] for row in df.values.tolist()]
-        return {
-            "columns": list(df.columns),
-            "rows": rows,
-        }
+                df = pd.read_parquet(parquet_path, engine="pyarrow")
+            elapsed = time.time() - start
+            print(f"⚡ Loaded parquet in {elapsed:.3f}s: {parquet_path}")
+            rows = [[_coerce_json_value(v) for v in row] for row in df.values.tolist()]
+            return {
+                "columns": list(df.columns),
+                "rows": rows,
+            }
+        except Exception as e:
+            print(f"⚠️ Failed to read parquet ({parquet_path}), pyarrow may not be available: {e}")
+            # If parquet fails, no fallback left
+            raise SnapshotFetchError(
+                f"Failed to read snapshot: parquet read failed and no JSON fallback found. "
+                f"parquet={parquet_path}, json={json_path}"
+            ) from e
 
-    return _apply_row_limit(_load_json_from_file(uri), row_limit)
+    raise SnapshotFetchError(
+        f"Snapshot file not found: tried json={json_path} and parquet={parquet_path}"
+    )
 
 
 @lru_cache(maxsize=32)
@@ -310,14 +335,18 @@ class SnapshotService:
             raise SnapshotNotFoundError(f"Feed not found: {feed_key}")
 
         base_path = _resolve_local_snapshot_path(item.s3_uri)
+        # Strip known data extensions to get the stem path
+        stem_path = base_path
+        if stem_path.suffix in (".json", ".parquet"):
+            stem_path = stem_path.with_suffix("")
         if file_format == "parquet":
-            file_path = base_path if base_path.suffix == ".parquet" else base_path.with_suffix(".parquet")
+            file_path = stem_path.with_suffix(".parquet")
         elif file_format == "schema":
-            file_path = base_path.with_suffix("").with_suffix(".schema.json")
+            file_path = stem_path.with_suffix(".schema.json")
         elif file_format == "preview":
-            file_path = base_path.with_suffix("").with_suffix(".preview.json")
+            file_path = stem_path.with_suffix(".preview.json")
         elif file_format == "validation":
-            file_path = base_path.with_suffix("").with_suffix(".validation.json")
+            file_path = stem_path.with_suffix(".validation.json")
         else:
             raise SnapshotFetchError(f"Unsupported file format: {file_format}")
 
@@ -343,7 +372,12 @@ class SnapshotService:
         if file_lower.endswith(".csv"):
             df = pd.read_csv(BytesIO(file_bytes))
         elif file_lower.endswith(".parquet"):
-            df = _load_parquet_from_bytes(file_bytes)
+            try:
+                df = _load_parquet_from_bytes(file_bytes)
+            except Exception as e:
+                raise SnapshotFetchError(
+                    "Parquet file upload requires pyarrow. Please upload CSV or Excel format instead."
+                ) from e
         elif file_lower.endswith((".xlsx", ".xls", ".xlsb")):
             if file_lower.endswith(".xlsb"):
                 df = pd.read_excel(BytesIO(file_bytes), engine="pyxlsb")
@@ -398,16 +432,23 @@ class SnapshotService:
         if validation["status"] == "warning":
             print(f"⚠️ Snapshot validation warnings: {', '.join(validation['warnings'])}")
 
-        parquet_path = output_dir / f"{feed_key}.parquet"
-        # Convert object columns to string and clean up float-like strings (e.g., '7920.0' -> '7920')
-        for col in df.select_dtypes(include=['object']).columns:
-            df[col] = df[col].astype(str)
-            # Remove '.0' suffix from integer-like strings
-            df[col] = df[col].str.replace(r'\.0$', '', regex=True)
-        df.to_parquet(parquet_path, engine="pyarrow", compression="snappy", index=False)
-        print(f"📦 Saved parquet: {parquet_path} (size: {parquet_path.stat().st_size / 1024 / 1024:.2f}MB)")
+        # Save full data as JSON (primary format, no native binary dependency)
+        data_json_path = output_dir / f"{feed_key}.json"
+        _write_json(data_json_path, {"columns": list(df.columns), "rows": rows})
+        print(f"📦 Saved JSON: {data_json_path} (size: {data_json_path.stat().st_size / 1024 / 1024:.2f}MB)")
 
-        file_uri = f"file://{parquet_path}"
+        # Optionally save parquet (faster reads when pyarrow is available)
+        try:
+            parquet_path = output_dir / f"{feed_key}.parquet"
+            for col in df.select_dtypes(include=['object']).columns:
+                df[col] = df[col].astype(str)
+                df[col] = df[col].str.replace(r'\.0$', '', regex=True)
+            df.to_parquet(parquet_path, engine="pyarrow", compression="snappy", index=False)
+            print(f"📦 Saved parquet: {parquet_path} (size: {parquet_path.stat().st_size / 1024 / 1024:.2f}MB)")
+        except Exception as e:
+            print(f"⚠️ Parquet save skipped (pyarrow not available): {e}")
+
+        file_uri = f"file://{data_json_path}"
         await self.snapshot_repo.upsert_snapshot_item(
             dashboard_id=dashboard_id,
             snapshot_date=target_date,
@@ -478,18 +519,24 @@ class SnapshotService:
         if validation["status"] == "warning":
             print(f"⚠️ Snapshot validation warnings: {', '.join(validation['warnings'])}")
 
-        # Save parquet file
-        parquet_path = output_dir / f"{feed_key}.parquet"
-        # Convert object columns to string and clean up float-like strings (e.g., '7920.0' -> '7920')
-        for col in df.select_dtypes(include=['object']).columns:
-            df[col] = df[col].astype(str)
-            # Remove '.0' suffix from integer-like strings
-            df[col] = df[col].str.replace(r'\.0$', '', regex=True)
-        df.to_parquet(parquet_path, engine="pyarrow", compression="snappy", index=False)
-        print(f"📦 Saved parquet: {parquet_path} (size: {parquet_path.stat().st_size / 1024 / 1024:.2f}MB)")
+        # Save full data as JSON (primary format, no native binary dependency)
+        data_json_path = output_dir / f"{feed_key}.json"
+        _write_json(data_json_path, {"columns": list(df.columns), "rows": coerced_rows})
+        print(f"📦 Saved JSON: {data_json_path} (size: {data_json_path.stat().st_size / 1024 / 1024:.2f}MB)")
+
+        # Optionally save parquet (faster reads when pyarrow is available)
+        try:
+            parquet_path = output_dir / f"{feed_key}.parquet"
+            for col in df.select_dtypes(include=['object']).columns:
+                df[col] = df[col].astype(str)
+                df[col] = df[col].str.replace(r'\.0$', '', regex=True)
+            df.to_parquet(parquet_path, engine="pyarrow", compression="snappy", index=False)
+            print(f"📦 Saved parquet: {parquet_path} (size: {parquet_path.stat().st_size / 1024 / 1024:.2f}MB)")
+        except Exception as e:
+            print(f"⚠️ Parquet save skipped (pyarrow not available): {e}")
 
         # Update database
-        file_uri = f"file://{parquet_path}"
+        file_uri = f"file://{data_json_path}"
         await self.snapshot_repo.upsert_snapshot_item(
             dashboard_id=dashboard_id,
             snapshot_date=target_date,
