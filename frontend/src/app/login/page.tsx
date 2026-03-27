@@ -50,7 +50,7 @@ export default function LoginPage() {
   const handleOAuthLogin = () => {
     // Redirect to auth_service Microsoft OAuth login
     // After OAuth, redirect to login page which will auto-redirect to dashboards
-    window.location.href = "/auth/microsoft/login?redirect_uri=/bi_poc/login";
+    window.location.href = "/auth/microsoft/login?redirect_uri=/login";
   };
 
   return (

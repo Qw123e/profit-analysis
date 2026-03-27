@@ -8,7 +8,7 @@ const normalizePath = (path: string) => {
   return path.endsWith("/") ? path.slice(0, -1) : path;
 };
 
-export const BASE_PATH = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH ?? "/bi_poc");
+export const BASE_PATH = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH ?? "");
 export const LOGIN_ROUTE = "/login";
 export const LOGIN_PATH = `${BASE_PATH}${LOGIN_ROUTE}`;
 
